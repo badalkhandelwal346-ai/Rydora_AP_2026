@@ -297,3 +297,41 @@ erDiagram
 •⁠  ⁠*Normal Form:* *BCNF*. Eliminates repeating document groups from the vehicle entity.
 
 ---
+
+
+#### 4.1 `rides`
+- **Primary Key ($PK$):** `rideId` (`UUID`)
+- **Candidate Keys ($CK$):** `rideId`
+- **Foreign Keys ($FK$):**
+  - `driverId \rightarrow users(userId)` (`ON DELETE RESTRICT`)
+  - `vehicleId \rightarrow vehicles(vehicleId)` (`ON DELETE RESTRICT`)
+- **Attributes:** `rideId`, `driverId`, `vehicleId`, `originAddress`, `originLat`, `originLng`, `originPlaceId`, `destinationAddress`, `destinationLat`, `destinationLng`, `destinationPlaceId`, `departureTime`, `totalSeats`, `availableSeats`, `farePerSeat`, `rideStatus`, `plannedDistanceKm`, `plannedDurationMinutes`, `notes`, `createdAt`, `updatedAt`
+- **Normal Form:** **BCNF**.
+
+#### 4.2 `ride_communities`
+- **Primary Key ($PK$):** `rideCommunityId` (`UUID`)
+- **Candidate Keys ($CK$):** `rideCommunityId`, `(rideId, communityId)`
+- **Foreign Keys ($FK$):**
+  - `rideId \rightarrow rides(rideId)` (`ON DELETE CASCADE`)
+  - `communityId \rightarrow communities(communityId)` (`ON DELETE CASCADE`)
+- **Attributes:** `rideCommunityId`, `rideId`, `communityId`, `createdAt`
+- **Normal Form:** **BCNF**. Pure join table resolving M:N ride-to-community visibility without multi-valued dependencies.
+
+#### 4.3 `ride_stops`
+- **Primary Key ($PK$):** `stopId` (`UUID`)
+- **Candidate Keys ($CK$):** `stopId`, `(rideId, sequence)`
+- **Foreign Keys ($FK$):** `rideId \rightarrow rides(rideId)` (`ON DELETE CASCADE`)
+- **Attributes:** `stopId`, `rideId`, `stopType`, `address`, `latitude`, `longitude`, `placeId`, `sequence`, `estimatedArrivalTime`, `createdAt`
+- **Functional Dependencies:**
+  - $FD_1: \text{stopId} \rightarrow \text{All attributes}$
+  - $FD_2: (\text{rideId}, \text{sequence}) \rightarrow \{\text{stopId}, \text{stopType}, \text{address}, \dots\}$
+- **Normal Form:** **BCNF**. Stop sequence uniqueness guaranteed per ride.
+
+#### 4.4 `ride_routes`
+- **Primary Key ($PK$):** `routeId` (`UUID`)
+- **Candidate Keys ($CK$):** `routeId`, `rideId`
+- **Foreign Keys ($FK$):** `rideId \rightarrow rides(rideId)` (`ON DELETE CASCADE`)
+- **Attributes:** `routeId`, `rideId`, `encodedPolyline`, `distanceMeters`, `durationSeconds`, `routeProvider`, `routeMetadata`, `createdAt`, `updatedAt`
+- **Normal Form:** **BCNF**. Decomposes heavy geographic polyline data away from the frequently queried `rides` table (1:1 vertical partition).
+
+---
