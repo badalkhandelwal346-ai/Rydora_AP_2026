@@ -79,3 +79,123 @@ flowchart LR
     3NF -->|Every determinant is a superkey| BCNF["BCNF"]
     BCNF -->|No non-trivial multi-valued dependencies| 4NF["4NF"]
 ```
+
+#### First Normal Form (1NF)
+A relation $R$ is in **1NF** if and only if:
+1. All underlying attribute domains contain purely atomic (indivisible) values.
+2. There are no repeating groups or composite multivalued arrays stored in scalar columns.
+3. Each record is uniquely identifiable by a primary key.
+
+*Rydora Compliance:* All scalar columns adhere to strict SQL primitive types (`VARCHAR`, `INTEGER`, `DECIMAL(10,2)`, `BOOLEAN`, `TIMESTAMP`, `UUID`). No comma-separated strings or unstructured arrays are used for core relationships.
+
+#### Second Normal Form (2NF)
+A relation $R$ is in **2NF** if and only if:
+1. $R$ is in 1NF.
+2. Every non-prime attribute $A \in R$ is **fully functionally dependent** on the primary key (i.e., no non-prime attribute is functionally dependent on a proper subset of any candidate key).
+
+*Rydora Compliance:* Candidate keys that are composite (such as `(userId, role)` in `UserRole`, `(userId, communityId)` in `CommunityMembership`, or `(rideId, sequence)` in `RideStop`) only functionally determine attributes that depend on the full composite key. All single-attribute primary keys automatically satisfy 2NF.
+
+#### Third Normal Form (3NF)
+A relation $R$ is in **3NF** if and only if:
+1. $R$ is in 2NF.
+2. For every non-trivial functional dependency $X \rightarrow A$:
+   - Either $X$ is a Superkey of $R$, OR
+   - $A$ is a Prime Attribute (member of a candidate key).
+Equivalently: No non-prime attribute is transitively dependent on any candidate key ($CK \rightarrow Y \rightarrow A$).
+
+#### Boyce-Codd Normal Form (BCNF)
+A relation $R$ is in **BCNF** if and only if:
+- For every non-trivial functional dependency $X \rightarrow A$, $X$ is a **Superkey** of $R$.
+BCNF removes any lingering anomalies present in 3NF when multiple overlapping candidate keys exist.
+
+#### Fourth Normal Form (4NF)
+A relation $R$ is in **4NF** if and only if:
+- For every non-trivial multi-valued dependency $X \twoheadrightarrow Y$, $X$ is a Superkey.
+This ensures independent multi-valued facts (e.g., a Driver having multiple Vehicles AND multiple Community Memberships) are not bundled into a single entity, which would cause Cartesian product anomalies.
+
+### 2.3 Modification Anomalies Addressed
+
+| Anomaly Class | Problem Description in Unnormalized Systems | Rydora Relational Solution |
+|---|---|---|
+| **Insertion Anomaly** | Cannot record a community or vehicle without simultaneously associating a rider or ride. | Decomposed into dedicated `communities`, `vehicles`, and `driver_profiles` tables with independent lifecycles. |
+| **Deletion Anomaly** | Deleting a completed ride deletes the vehicle's registration or the user's historical profile. | Referential integrity using `ON DELETE RESTRICT` on historical rides, bookings, and financial accounts. |
+| **Update Anomaly** | Changing a user's phone number or a community's name requires updating thousands of ride rows. | Single source of truth: `users.phone` and `communities.name` are referenced only by foreign key UUIDs. |
+
+---
+
+## 3. Domain-by-Domain Normalization & Functional Dependency Analysis
+
+---
+
+### Module 1: Identity, Authentication & Preferences (7 Entities)
+
+```mermaid
+erDiagram
+    users ||--o{ user_roles : "assigned"
+    users ||--o{ user_sessions : "maintains"
+    users ||--o{ email_verifications : "issues"
+    users ||--o{ password_reset_tokens : "requests"
+    users ||--o{ phone_verifications : "verifies"
+    users ||--o| user_preferences : "configures"
+```
+
+#### 1.1 `users`
+- **Primary Key ($PK$):** `userId` (`UUID`)
+- **Candidate Keys ($CK$):** `userId`, `email`, `phone` (where not null)
+- **Attributes:** `userId`, `name`, `email`, `phone`, `phoneVerifiedAt`, `passwordHash`, `profileImage`, `accountStatus`, `emailVerifiedAt`, `createdAt`, `updatedAt`, `deletedAt`
+- **Functional Dependencies:**
+  - $FD_1: \text{userId} \rightarrow \{\text{name}, \text{email}, \text{phone}, \text{phoneVerifiedAt}, \text{passwordHash}, \text{profileImage}, \text{accountStatus}, \text{emailVerifiedAt}, \text{createdAt}, \text{updatedAt}, \text{deletedAt}\}$
+  - $FD_2: \text{email} \rightarrow \{\text{userId}, \dots\}$
+  - $FD_3: \text{phone} \rightarrow \{\text{userId}, \dots\}$
+- **Normal Form:** **BCNF** (All determinants `userId`, `email`, `phone` are superkeys).
+- **Relational Integrity:** Soft delete supported via `deletedAt` without orphaning historical child foreign keys.
+
+#### 1.2 `user_roles`
+- **Primary Key ($PK$):** `roleId` (`UUID`)
+- **Candidate Keys ($CK$):** `roleId`, `(userId, role)`
+- **Foreign Keys ($FK$):** `userId \rightarrow users(userId)` (`ON DELETE CASCADE`)
+- **Attributes:** `roleId`, `userId`, `role`, `createdAt`
+- **Functional Dependencies:**
+  - $FD_1: \text{roleId} \rightarrow \{\text{userId}, \text{role}, \text{createdAt}\}$
+  - $FD_2: (\text{userId}, \text{role}) \rightarrow \{\text{roleId}, \text{createdAt}\}$
+- **Normal Form:** **BCNF** (Both `roleId` and composite `(userId, role)` are superkeys). Prevents duplicate role assignment per user.
+
+#### 1.3 `user_sessions`
+- **Primary Key ($PK$):** `sessionId` (`UUID`)
+- **Candidate Keys ($CK$):** `sessionId`, `refreshTokenHash`
+- **Foreign Keys ($FK$):** `userId \rightarrow users(userId)` (`ON DELETE CASCADE`)
+- **Attributes:** `sessionId`, `userId`, `refreshTokenHash`, `deviceInfo`, `ipAddress`, `expiresAt`, `revokedAt`, `createdAt`
+- **Functional Dependencies:**
+  - $FD_1: \text{sessionId} \rightarrow \{\text{userId}, \text{refreshTokenHash}, \text{deviceInfo}, \text{ipAddress}, \text{expiresAt}, \text{revokedAt}, \text{createdAt}\}$
+  - $FD_2: \text{refreshTokenHash} \rightarrow \{\text{sessionId}, \dots\}$
+- **Normal Form:** **BCNF**. Token hash is strictly unique.
+
+#### 1.4 `email_verifications`
+- **Primary Key ($PK$):** `verificationId` (`UUID`)
+- **Candidate Keys ($CK$):** `verificationId`, `tokenHash`
+- **Foreign Keys ($FK$):** `userId \rightarrow users(userId)` (`ON DELETE CASCADE`)
+- **Attributes:** `verificationId`, `userId`, `tokenHash`, `expiresAt`, `usedAt`, `createdAt`
+- **Normal Form:** **BCNF**. Single-responsibility token isolation.
+
+#### 1.5 `password_reset_tokens`
+- **Primary Key ($PK$):** `resetId` (`UUID`)
+- **Candidate Keys ($CK$):** `resetId`, `tokenHash`
+- **Foreign Keys ($FK$):** `userId \rightarrow users(userId)` (`ON DELETE CASCADE`)
+- **Attributes:** `resetId`, `userId`, `tokenHash`, `expiresAt`, `usedAt`, `createdAt`
+- **Normal Form:** **BCNF**. Independent token lifecycle.
+
+#### 1.6 `phone_verifications`
+- **Primary Key ($PK$):** `verificationId` (`UUID`)
+- **Candidate Keys ($CK$):** `verificationId`
+- **Foreign Keys ($FK$):** `userId \rightarrow users(userId)` (`ON DELETE CASCADE`)
+- **Attributes:** `verificationId`, `userId`, `phone`, `otpHash`, `expiresAt`, `verifiedAt`, `attemptCount`, `createdAt`
+- **Normal Form:** **BCNF**.
+
+#### 1.7 `user_preferences`
+- **Primary Key ($PK$):** `preferenceId` (`UUID`)
+- **Candidate Keys ($CK$):** `preferenceId`, `userId`
+- **Foreign Keys ($FK$):** `userId \rightarrow users(userId)` (`ON DELETE CASCADE`)
+- **Attributes:** `preferenceId`, `userId`, `language`, `theme`, `accessibilitySettings`, `createdAt`, `updatedAt`
+- **Normal Form:** **BCNF**. One-to-one vertical partitioning of UI preferences out of the hot `users` row.
+
+---
