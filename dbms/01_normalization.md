@@ -266,3 +266,34 @@ erDiagram
 •⁠  ⁠*Attributes:* ⁠ eligibilityId ⁠, ⁠ bookingId ⁠, ⁠ communityId ⁠, ⁠ membershipId ⁠, ⁠ verificationStatus ⁠, ⁠ snapshotAt ⁠, ⁠ eligibilitySnapshot ⁠
 •⁠  ⁠*Normal Form:* *BCNF. **Crucial architectural snapshot:* preserves historical proof that rider was verified at booking confirmation time even if membership is revoked later.
 
+---
+
+### Module 3: Fleet & Driver Management (3 Entities)
+
+#### 3.1 ⁠ vehicles ⁠
+•⁠  ⁠*Primary Key ($PK$):* ⁠ vehicleId ⁠ (⁠ UUID ⁠)
+•⁠  ⁠*Candidate Keys ($CK$):* ⁠ vehicleId ⁠, ⁠ registrationNumber ⁠
+•⁠  ⁠*Foreign Keys ($FK$):* ⁠ ownerId \rightarrow users(userId) ⁠ (⁠ ON DELETE CASCADE ⁠)
+•⁠  ⁠*Attributes:* ⁠ vehicleId ⁠, ⁠ ownerId ⁠, ⁠ vehicleType ⁠, ⁠ registrationNumber ⁠, ⁠ make ⁠, ⁠ model ⁠, ⁠ color ⁠, ⁠ seatCapacity ⁠, ⁠ verificationStatus ⁠, ⁠ isActive ⁠, ⁠ createdAt ⁠, ⁠ updatedAt ⁠
+•⁠  ⁠*Functional Dependencies:*
+  - $FD_1: \text{vehicleId} \rightarrow \text{All attributes}$
+  - $FD_2: \text{registrationNumber} \rightarrow \text{All attributes}$
+•⁠  ⁠*Normal Form:* *BCNF*.
+
+#### 3.2 ⁠ driver_profiles ⁠
+•⁠  ⁠*Primary Key ($PK$):* ⁠ driverProfileId ⁠ (⁠ UUID ⁠)
+•⁠  ⁠*Candidate Keys ($CK$):* ⁠ driverProfileId ⁠, ⁠ userId ⁠
+•⁠  ⁠*Foreign Keys ($FK$):* ⁠ userId \rightarrow users(userId) ⁠ (⁠ ON DELETE CASCADE ⁠)
+•⁠  ⁠*Attributes:* ⁠ driverProfileId ⁠, ⁠ userId ⁠, ⁠ driverVerificationStatus ⁠, ⁠ licenseVerificationStatus ⁠, ⁠ licenseNumber ⁠, ⁠ eligibilityStatus ⁠, ⁠ approvedAt ⁠, ⁠ createdAt ⁠, ⁠ updatedAt ⁠
+•⁠  ⁠*Normal Form:* *BCNF*. Isolates driver eligibility from basic user registration.
+
+#### 3.3 ⁠ vehicle_documents ⁠
+•⁠  ⁠*Primary Key ($PK$):* ⁠ documentId ⁠ (⁠ UUID ⁠)
+•⁠  ⁠*Candidate Keys ($CK$):* ⁠ documentId ⁠
+•⁠  ⁠*Foreign Keys ($FK$):*
+  - ⁠ vehicleId \rightarrow vehicles(vehicleId) ⁠ (⁠ ON DELETE CASCADE ⁠)
+  - ⁠ reviewedById \rightarrow users(userId) ⁠ (⁠ ON DELETE SET NULL ⁠)
+•⁠  ⁠*Attributes:* ⁠ documentId ⁠, ⁠ vehicleId ⁠, ⁠ documentType ⁠, ⁠ fileUrl ⁠, ⁠ verificationStatus ⁠, ⁠ reviewedById ⁠, ⁠ reviewedAt ⁠, ⁠ expiresAt ⁠, ⁠ rejectionReason ⁠, ⁠ createdAt ⁠, ⁠ updatedAt ⁠
+•⁠  ⁠*Normal Form:* *BCNF*. Eliminates repeating document groups from the vehicle entity.
+
+---
