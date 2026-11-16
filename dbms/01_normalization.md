@@ -199,3 +199,70 @@ erDiagram
 - **Normal Form:** **BCNF**. One-to-one vertical partitioning of UI preferences out of the hot `users` row.
 
 ---
+
+### Module 2: Communities, Domain Verification & Membership (6 Entities)
+
+⁠ mermaid
+erDiagram
+    communities ||--o{ community_domains : "authenticates_via"
+    communities ||--o{ community_invites : "distributes"
+    communities ||--o{ community_memberships : "enrolls"
+    community_memberships ||--o{ community_verifications : "audits"
+    community_memberships ||--o{ booking_community_eligibilities : "validates"
+ ⁠
+
+#### 2.1 ⁠ communities ⁠
+•⁠  ⁠*Primary Key ($PK$):* ⁠ communityId ⁠ (⁠ UUID ⁠)
+•⁠  ⁠*Candidate Keys ($CK$):* ⁠ communityId ⁠
+•⁠  ⁠*Foreign Keys ($FK$):* ⁠ createdById \rightarrow users(userId) ⁠ (⁠ ON DELETE RESTRICT ⁠)
+•⁠  ⁠*Attributes:* ⁠ communityId ⁠, ⁠ name ⁠, ⁠ type ⁠, ⁠ description ⁠, ⁠ status ⁠, ⁠ isDiscoverable ⁠, ⁠ createdById ⁠, ⁠ createdAt ⁠, ⁠ updatedAt ⁠
+•⁠  ⁠*Functional Dependencies:* $\text{communityId} \rightarrow \text{All attributes}$
+•⁠  ⁠*Normal Form:* *BCNF*.
+
+#### 2.2 ⁠ community_memberships ⁠
+•⁠  ⁠*Primary Key ($PK$):* ⁠ membershipId ⁠ (⁠ UUID ⁠)
+•⁠  ⁠*Candidate Keys ($CK$):* ⁠ membershipId ⁠, ⁠ (userId, communityId) ⁠
+•⁠  ⁠*Foreign Keys ($FK$):*
+  - ⁠ userId \rightarrow users(userId) ⁠ (⁠ ON DELETE CASCADE ⁠)
+  - ⁠ communityId \rightarrow communities(communityId) ⁠ (⁠ ON DELETE CASCADE ⁠)
+•⁠  ⁠*Attributes:* ⁠ membershipId ⁠, ⁠ userId ⁠, ⁠ communityId ⁠, ⁠ membershipStatus ⁠, ⁠ membershipRole ⁠, ⁠ verificationStatus ⁠, ⁠ verificationMethod ⁠, ⁠ verifiedAt ⁠, ⁠ joinedAt ⁠, ⁠ createdAt ⁠, ⁠ updatedAt ⁠
+•⁠  ⁠*Functional Dependencies:*
+  - $FD_1: \text{membershipId} \rightarrow \{\text{userId}, \text{communityId}, \text{membershipStatus}, \dots\}$
+  - $FD_2: (\text{userId}, \text{communityId}) \rightarrow \{\text{membershipId}, \dots\}$
+•⁠  ⁠*Normal Form:* *BCNF*. Eliminates M:N redundancy between Users and Communities.
+
+#### 2.3 ⁠ community_domains ⁠
+•⁠  ⁠*Primary Key ($PK$):* ⁠ domainId ⁠ (⁠ UUID ⁠)
+•⁠  ⁠*Candidate Keys ($CK$):* ⁠ domainId ⁠, ⁠ (communityId, domain) ⁠
+•⁠  ⁠*Foreign Keys ($FK$):* ⁠ communityId \rightarrow communities(communityId) ⁠ (⁠ ON DELETE CASCADE ⁠)
+•⁠  ⁠*Attributes:* ⁠ domainId ⁠, ⁠ communityId ⁠, ⁠ domain ⁠, ⁠ isActive ⁠, ⁠ approvedAt ⁠, ⁠ createdAt ⁠
+•⁠  ⁠*Normal Form:* *BCNF*. Isolates email domain rules (1:N) from community metadata.
+
+#### 2.4 ⁠ community_invites ⁠
+•⁠  ⁠*Primary Key ($PK$):* ⁠ inviteId ⁠ (⁠ UUID ⁠)
+•⁠  ⁠*Candidate Keys ($CK$):* ⁠ inviteId ⁠, ⁠ codeHash ⁠
+•⁠  ⁠*Foreign Keys ($FK$):*
+  - ⁠ communityId \rightarrow communities(communityId) ⁠ (⁠ ON DELETE CASCADE ⁠)
+  - ⁠ createdById \rightarrow users(userId) ⁠ (⁠ ON DELETE RESTRICT ⁠)
+•⁠  ⁠*Attributes:* ⁠ inviteId ⁠, ⁠ communityId ⁠, ⁠ createdById ⁠, ⁠ codeHash ⁠, ⁠ emailRestriction ⁠, ⁠ maxUses ⁠, ⁠ useCount ⁠, ⁠ expiresAt ⁠, ⁠ revokedAt ⁠, ⁠ createdAt ⁠
+•⁠  ⁠*Normal Form:* *BCNF*.
+
+#### 2.5 ⁠ community_verifications ⁠
+•⁠  ⁠*Primary Key ($PK$):* ⁠ verificationId ⁠ (⁠ UUID ⁠)
+•⁠  ⁠*Candidate Keys ($CK$):* ⁠ verificationId ⁠
+•⁠  ⁠*Foreign Keys ($FK$):*
+  - ⁠ membershipId \rightarrow community_memberships(membershipId) ⁠ (⁠ ON DELETE CASCADE ⁠)
+  - ⁠ reviewerId \rightarrow users(userId) ⁠ (⁠ ON DELETE SET NULL ⁠)
+•⁠  ⁠*Attributes:* ⁠ verificationId ⁠, ⁠ membershipId ⁠, ⁠ method ⁠, ⁠ status ⁠, ⁠ reviewerId ⁠, ⁠ reviewedAt ⁠, ⁠ reason ⁠, ⁠ metadata ⁠, ⁠ createdAt ⁠
+•⁠  ⁠*Normal Form:* *BCNF*. Separates verification audit log from current membership status, avoiding repeating groups.
+
+#### 2.6 ⁠ booking_community_eligibilities ⁠
+•⁠  ⁠*Primary Key ($PK$):* ⁠ eligibilityId ⁠ (⁠ UUID ⁠)
+•⁠  ⁠*Candidate Keys ($CK$):* ⁠ eligibilityId ⁠, ⁠ (bookingId, communityId) ⁠
+•⁠  ⁠*Foreign Keys ($FK$):*
+  - ⁠ bookingId \rightarrow bookings(bookingId) ⁠ (⁠ ON DELETE CASCADE ⁠)
+  - ⁠ communityId \rightarrow communities(communityId) ⁠ (⁠ ON DELETE RESTRICT ⁠)
+  - ⁠ membershipId \rightarrow community_memberships(membershipId) ⁠ (⁠ ON DELETE RESTRICT ⁠)
+•⁠  ⁠*Attributes:* ⁠ eligibilityId ⁠, ⁠ bookingId ⁠, ⁠ communityId ⁠, ⁠ membershipId ⁠, ⁠ verificationStatus ⁠, ⁠ snapshotAt ⁠, ⁠ eligibilitySnapshot ⁠
+•⁠  ⁠*Normal Form:* *BCNF. **Crucial architectural snapshot:* preserves historical proof that rider was verified at booking confirmation time even if membership is revoked later.
+
