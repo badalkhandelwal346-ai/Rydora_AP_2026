@@ -335,3 +335,4 @@ erDiagram
 - **Normal Form:** **BCNF**. Decomposes heavy geographic polyline data away from the frequently queried `rides` table (1:1 vertical partition).
 
 ---
+
